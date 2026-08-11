@@ -1,0 +1,18 @@
+# Firmware and device-specific material must never enter this public repository.
+*.img
+*.bin
+*metadata*
+*kpanic*
+*parameter*
+*nvram*
+*calibration*
+*.key
+*.keystore
+*.jks
+local.properties
+**/build/
+**/.gradle/
+jt600-update.cfg
+jt600-flash-job.json
+.test-*/
+firmware-package/
