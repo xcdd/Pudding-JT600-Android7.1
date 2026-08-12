@@ -2,6 +2,7 @@
 
 ## 1.1 - 2026-08-12
 
+- Fixed Factory verification so an unmounted `/data` is initialized immediately from the task's Factory mode; it no longer depends on an optional command-line switch or waits for an impossible boot completion.
 - Replaced the regressed S71M52 System with S71M53, based on the accepted S71M51 release content plus the per-device name fix; post-write verification now requires all five uninstallable preload apps, the S71M53 release marker and `JT600_<serial suffix>` names.
 - Fixed Factory runs getting stranded at the Android boot animation when AndroidTool completed a manual write without recording `RunProc ret=1`; the workflow now verifies the flashed System, Kernel and userdata size on-device before automatically initializing `/data`.
 - Updated Factory and custom-system update workflows for the JT600 V1.1 combination `K71M122/B71M29/S71M53/R71M0`; update mode now writes the required Kernel and System pair.

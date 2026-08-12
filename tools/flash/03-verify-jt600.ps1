@@ -1,8 +1,7 @@
 ﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$JobFile,
-    [switch]$InitializeData
+    [string]$JobFile
 )
 
 Set-StrictMode -Version Latest
@@ -100,8 +99,8 @@ Write-Host "Kernel 构建号与 V$($job.releaseVersion) 发布清单一致。" -
 
 $dataMount = (ADB @('-s', $serial, 'shell', 'mount')) -join "`n"
 if ($dataMount -notmatch '\s/data\s') {
-    Write-Warning '/data is not mounted. This is expected after the factory-system flash and before userdata initialization.'
-    if ($InitializeData) {
+    if ([string]$job.mode -eq 'Factory') {
+        Write-Warning '/data 尚未挂载。Factory 首次刷写必须立即初始化 userdata，不能等待系统启动。'
         Write-Host '检测到 /data 尚未挂载，正在确认 userdata 为 5 GiB，然后初始化 /data。' -ForegroundColor Yellow
         $size = ((ADB @('-s', $serial, 'shell', 'blockdev', '--getsize64', '/dev/block/platform/1021c000.rksdmmc/by-name/userdata')) -join '').Trim()
         if ($size -ne '5368709120') { throw "Refusing data initialization: userdata is $size bytes, expected 5368709120" }
@@ -135,6 +134,9 @@ if ($dataMount -notmatch '\s/data\s') {
         $finalMounts = (ADB @('-s', $serial, 'shell', 'mount')) -join "`n"
         if ($finalMounts -notmatch '\s/data\s') { throw 'The device started but /data is still not mounted.' }
         Write-Host 'Data initialization completed; the device restarted and /data is mounted.' -ForegroundColor Green
+    }
+    else {
+        throw 'Update 模式检测到 /data 未挂载。不会等待系统启动；请停止并检查设备分区状态。'
     }
 }
 

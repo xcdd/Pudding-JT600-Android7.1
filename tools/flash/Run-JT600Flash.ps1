@@ -4,8 +4,7 @@ param(
     [string]$Mode = 'Factory',
     [string]$FirmwareDirectory,
     [string]$AndroidToolDirectory,
-    [string]$BackupDirectory,
-    [switch]$InitializeData
+    [string]$BackupDirectory
 )
 
 Set-StrictMode -Version Latest
@@ -23,5 +22,5 @@ Write-Host '[2/4] 文件检查完成，正在启动 AndroidTool。' -ForegroundC
 & $run -JobFile $job
 Write-Host '[3/4] AndroidTool 已关闭。正在整理本次操作状态；脚本不会把“关闭窗口”当成成功。' -ForegroundColor Cyan
 Write-Host '[4/4] 正在等待设备重新启动并进行验收，请不要拔 USB。' -ForegroundColor Cyan
-& $verify -JobFile $job -InitializeData:$InitializeData
+& $verify -JobFile $job
 Write-Host '刷写完成，设备验收成功。' -ForegroundColor Green

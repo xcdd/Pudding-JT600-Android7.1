@@ -15,5 +15,5 @@ $jobFile = Join-Path $latest.FullName 'jt600-flash-job.json'
 $job = Get-Content -Raw -Encoding UTF8 -LiteralPath $jobFile | ConvertFrom-Json
 Write-Host ("找到最近任务：{0}，模式：{1}" -f $latest.FullName, $job.mode) -ForegroundColor Cyan
 $verify = Join-Path $PSScriptRoot '03-verify-jt600.ps1'
-& $verify -JobFile $jobFile -InitializeData:([string]$job.mode -eq 'Factory')
+& $verify -JobFile $jobFile
 Write-Host '刷写完成，设备验收成功。' -ForegroundColor Green
