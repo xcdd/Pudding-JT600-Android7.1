@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1 - 2026-08-12
+
+- Updated Factory and custom-system update workflows for the JT600 V1.1 combination `K71M122/B71M29/S71M52/R71M0`; update mode now writes the required Kernel and System pair.
+- Added post-write comparison of `ro.build.display.id` and the Kernel build number with the release manifest so an incomplete or mismatched V1.1 combination cannot be reported as accepted.
+- Replaced generated Factory IMAGE configurations with an explicit human-readable AndroidTool write table. The script validates inputs and opens the all-unselected tool only.
+- Replaced AndroidTool's obsolete ADB 1.0.31 with the tested platform-tools ADB 1.0.41 so Windows 11 can enumerate the JT600 USB ADB interface.
+
 ## 1.0 - 2026-08-11
 
 - Published JT600 Android 7.1 flashing instructions for factory devices and devices already running the custom system.

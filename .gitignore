@@ -16,3 +16,4 @@ jt600-update.cfg
 jt600-flash-job.json
 .test-*/
 firmware-package/
+firmware-package.zip

@@ -99,7 +99,7 @@ $releaseValues = @{}
 foreach ($line in Get-Content -LiteralPath $releaseManifest -Encoding UTF8) {
     if ($line -match '^([^=]+)=(.*)$') { $releaseValues[$matches[1]] = $matches[2] }
 }
-foreach ($key in @('KERNEL', 'BOOT', 'SYSTEM', 'PARAMETER', 'USERDATA_GUARD', 'KERNEL_BYTES', 'BOOT_BYTES', 'SYSTEM_BYTES', 'PARAMETER_BYTES', 'USERDATA_GUARD_BYTES')) {
+foreach ($key in @('RELEASE_VERSION', 'INTERNAL_TUPLE', 'EXPECTED_DISPLAY_ID', 'EXPECTED_KERNEL_BUILD', 'KERNEL', 'BOOT', 'SYSTEM', 'PARAMETER', 'USERDATA_GUARD', 'KERNEL_BYTES', 'BOOT_BYTES', 'SYSTEM_BYTES', 'PARAMETER_BYTES', 'USERDATA_GUARD_BYTES', 'TARGET_KERNEL_LBA', 'TARGET_BOOT_LBA', 'TARGET_SYSTEM_LBA', 'TARGET_METADATA_LBA', 'TARGET_KPANIC_LBA', 'TARGET_USERDATA_LBA', 'TARGET_PARAMETER_LBA')) {
     if (-not $releaseValues.ContainsKey($key)) { throw "RELEASE-MANIFEST.txt is missing $key" }
 }
 $toolExe = Require-File (Join-Path $tool 'AndroidTool.exe') 'AndroidTool.exe'
@@ -110,22 +110,21 @@ $adb = Require-File (Join-Path $tool 'bin\adb.exe') 'AndroidTool bundled USB ADB
 $system = Get-Image $firmware $releaseValues['SYSTEM'] ([int64]$releaseValues['SYSTEM_BYTES'])
 Assert-ExpectedHash $system $releaseValues['SYSTEM_SHA256']
 Assert-ManifestHash $manifest $system
+$kernel = Get-Image $firmware $releaseValues['KERNEL'] ([int64]$releaseValues['KERNEL_BYTES'])
+Assert-ExpectedHash $kernel $releaseValues['KERNEL_SHA256']
+Assert-ManifestHash $manifest $kernel
 $parameter = $null
 $guard = $null
-$kernel = $null
 $boot = $null
 $metadata = $null
 $kpanic = $null
 if ($Mode -eq 'Factory') {
-    $kernel = Get-Image $firmware $releaseValues['KERNEL'] ([int64]$releaseValues['KERNEL_BYTES'])
     $boot = Get-Image $firmware $releaseValues['BOOT'] ([int64]$releaseValues['BOOT_BYTES'])
     $parameter = Get-Image $firmware $releaseValues['PARAMETER'] ([int64]$releaseValues['PARAMETER_BYTES'])
     $guard = Get-Image $firmware $releaseValues['USERDATA_GUARD'] ([int64]$releaseValues['USERDATA_GUARD_BYTES'])
-    Assert-ExpectedHash $kernel $releaseValues['KERNEL_SHA256']
     Assert-ExpectedHash $boot $releaseValues['BOOT_SHA256']
     Assert-ExpectedHash $parameter $releaseValues['PARAMETER_SHA256']
     Assert-ExpectedHash $guard $releaseValues['USERDATA_GUARD_SHA256']
-    Assert-ManifestHash $manifest $kernel
     Assert-ManifestHash $manifest $boot
     Assert-ManifestHash $manifest $parameter
     Assert-ManifestHash $manifest $guard
@@ -142,67 +141,43 @@ $output = Resolve-FullPath $OutputDirectory
 $stagedTool = Join-Path $output 'AndroidTool-v2.38'
 if (Test-Path -LiteralPath $stagedTool) { throw "Output directory already contains staged AndroidTool: $stagedTool" }
 New-Item -ItemType Directory -Force -Path $stagedTool | Out-Null
-foreach ($file in @('AndroidTool.exe', 'config.cfg', 'config.ini', 'rk3128.cfg', 'config.factory-template.cfg')) {
+foreach ($file in @('AndroidTool.exe', 'config.cfg', 'config.ini', 'rk3128.cfg')) {
     Copy-Item -Force (Join-Path $tool $file) (Join-Path $stagedTool $file)
 }
 foreach ($directory in @('bin', 'Language')) {
     Copy-Item -Recurse -Force (Join-Path $tool $directory) (Join-Path $stagedTool $directory)
 }
 
-$templateName = if ($Mode -eq 'Factory') { 'config.factory-template.cfg' } else { 'config.cfg' }
-$source = [IO.File]::ReadAllBytes((Join-Path $stagedTool $templateName))
-$headerSize = 29
-$rowSize = 610
-$rowCount = 12
-if ($source.Length -ne $headerSize + $rowSize * $rowCount -or $source[0] -ne 0x43 -or $source[1] -ne 0x46 -or $source[2] -ne 0x47) {
-    throw 'The supplied AndroidTool config.cfg is not the expected v2.38 format'
-}
-$rows = @()
-for ($i = 0; $i -lt $rowCount; $i++) {
-    $rows += ,([byte[]]$source[($headerSize + $i * $rowSize)..($headerSize + ($i + 1) * $rowSize - 1)])
-}
-$desired = @()
+$manualSteps = New-Object 'System.Collections.Generic.List[object]'
 if ($Mode -eq 'Factory') {
-    $desired += ,(New-Row $rows[6] 'Kernel' $kernel 0x0000E000 $true)
-    $desired += ,(New-Row $rows[7] 'Boot' $boot 0x00014000 $true)
+    $manualSteps.Add([ordered]@{ order = 1; name = 'Kernel'; file = $kernel; address = $releaseValues['TARGET_KERNEL_LBA'] })
+    $manualSteps.Add([ordered]@{ order = 2; name = 'Boot'; file = $boot; address = $releaseValues['TARGET_BOOT_LBA'] })
+    $manualSteps.Add([ordered]@{ order = 3; name = 'System'; file = $system; address = $releaseValues['TARGET_SYSTEM_LBA'] })
+    $manualSteps.Add([ordered]@{ order = 4; name = 'Metadata'; file = $metadata; address = $releaseValues['TARGET_METADATA_LBA'] })
+    $manualSteps.Add([ordered]@{ order = 5; name = 'Kpanic'; file = $kpanic; address = $releaseValues['TARGET_KPANIC_LBA'] })
+    $manualSteps.Add([ordered]@{ order = 6; name = 'Userdata'; file = $guard; address = $releaseValues['TARGET_USERDATA_LBA'] })
+    $manualSteps.Add([ordered]@{ order = 7; name = 'Parameter'; file = $parameter; address = $releaseValues['TARGET_PARAMETER_LBA'] })
 }
-$desired += ,(New-Row $rows[9] 'System' $system 0x0008A000 $true)
-if ($Mode -eq 'Factory') {
-    $desired += ,(New-Row $rows[1] 'Device-Metadata' $metadata 0x0048A000 $true)
-    $desired += ,(New-Row $rows[2] 'Device-Kpanic' $kpanic 0x0048C000 $true)
-    $desired += ,(New-Row $rows[3] 'Userdata-Guard' $guard 0x0048E000 $true)
-    $desired += ,(New-Row $rows[4] 'Parameter' $parameter 0 $true)
+else {
+    $manualSteps.Add([ordered]@{ order = 1; name = 'Kernel'; file = $kernel; address = $releaseValues['TARGET_KERNEL_LBA'] })
+    $manualSteps.Add([ordered]@{ order = 2; name = 'System'; file = $system; address = $releaseValues['TARGET_SYSTEM_LBA'] })
 }
-$desired += ,(New-Row $rows[5] 'Loader' (Get-Utf16Field $rows[5] 82 520) 0 $false)
-for ($i = $desired.Count; $i -lt $rowCount; $i++) {
-    $sourceRow = $rows[[Math]::Min($i, $rows.Count - 1)]
-    $desired += ,(New-Row $sourceRow ("Disabled-{0}" -f ($i + 1)) (Get-Utf16Field $sourceRow 82 520) 0 $false)
-}
-$config = [byte[]]($source[0..($headerSize - 1)] + ($desired | ForEach-Object { $_ }))
-$selectedCount = if ($Mode -eq 'Factory') { 7 } else { 1 }
-for ($i = 0; $i -lt $desired.Count; $i++) {
-    $actualSelected = Get-UInt32 $desired[$i] 606
-    $expectedSelected = if ($i -lt $selectedCount) { 1 } else { 0 }
-    if ($actualSelected -ne $expectedSelected) { throw "Generated AndroidTool row $i has an unexpected selected state." }
-    $rowName = Get-Utf16Field $desired[$i] 2 32
-    if ($rowName -eq 'Loader' -and $actualSelected -ne 0) { throw 'Generated AndroidTool config selected Loader.' }
-}
-$generatedConfig = Join-Path $stagedTool 'config.cfg'
-[IO.File]::WriteAllBytes($generatedConfig, $config)
 
 $job = [ordered]@{
     mode = $Mode
+    releaseVersion = $releaseValues['RELEASE_VERSION']
+    internalTuple = $releaseValues['INTERNAL_TUPLE']
+    expectedDisplayId = $releaseValues['EXPECTED_DISPLAY_ID']
+    expectedKernelBuild = $releaseValues['EXPECTED_KERNEL_BUILD']
     firmwareDirectory = $firmware
     androidToolDirectory = $stagedTool
     androidToolExe = $toolExe
     adb = (Join-Path $stagedTool 'bin\adb.exe')
-    config = $generatedConfig
+    config = (Join-Path $stagedTool 'config.cfg')
     createdUtc = [DateTime]::UtcNow.ToString('o')
-    selectedRows = @($desired | Select-Object -First $(if ($Mode -eq 'Factory') { 7 } else { 1 }) | ForEach-Object {
-        [ordered]@{ name = (Get-Utf16Field $_ 2 32); address = ('0x{0:X8}' -f (Get-UInt32 $_ 602)); path = (Get-Utf16Field $_ 82 520) }
-    })
+    manualSteps = $manualSteps
 }
 $jobPath = Join-Path $output 'jt600-flash-job.json'
 $job | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $jobPath -Encoding UTF8
-Write-Output "CONFIG=$generatedConfig"
+Write-Output "CONFIG=$(Join-Path $stagedTool 'config.cfg')"
 Write-Output "JOB=$jobPath"

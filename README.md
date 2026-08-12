@@ -10,6 +10,7 @@
 - [原厂设备备份脚本](tools/flash/00-export-original-jt600.cmd)
 - [一键原厂刷写入口](tools/flash/Run-JT600Flash-Factory.cmd)
 - [定制系统更新入口](tools/flash/Run-JT600Flash-Update.cmd)
+- [恢复写后验收](tools/flash/Resume-JT600Verification.cmd)
 - [SensorTest 使用与测试](docs/sensortest.md)
 - [SensorTest 构建说明](docs/build.md)
 - [第三方声明](NOTICE.md)
