@@ -137,3 +137,62 @@ if ($dataMount -notmatch '\s/data\s') {
         Write-Host 'Data initialization completed; the device restarted and /data is mounted.' -ForegroundColor Green
     }
 }
+
+$bootDeadline = [DateTime]::UtcNow.AddMinutes(5)
+do {
+    $boot = ((ADB @('-s', $serial, 'shell', 'getprop', 'sys.boot_completed')) -join '').Trim()
+    if ($boot -ne '1') {
+        Write-Host '系统仍在完成首次启动，继续等待...' -ForegroundColor Gray
+        Start-Sleep -Seconds 3
+    }
+} while ($boot -ne '1' -and [DateTime]::UtcNow -lt $bootDeadline)
+if ($boot -ne '1') { throw '设备已连接 ADB，但系统没有在等待期限内完成启动。' }
+
+$releaseId = (ADB @('-s', $serial, 'shell', 'cat', '/system/etc/jt600-release-id')) -join "`n"
+$expectedSystemImage = [string]$job.expectedSystemImage
+if ([string]::IsNullOrWhiteSpace($expectedSystemImage)) { throw '刷写任务没有记录目标 System 镜像名，无法验收。' }
+if ($releaseId -notmatch ('(?m)^SYSTEM_IMAGE=' + [regex]::Escape($expectedSystemImage) + '$')) {
+    throw "System 内容不匹配：设备没有报告 SYSTEM_IMAGE=$expectedSystemImage。"
+}
+Write-Host "System 发布标识与 $expectedSystemImage 一致。" -ForegroundColor Green
+
+$expectedPreloadFiles = @(([string]$job.expectedPreloadFiles).Split(',') | Where-Object { $_ -ne '' })
+$missingPreloadFiles = @($expectedPreloadFiles | Where-Object {
+    $path = "/system/etc/jt600-preload/$_"
+    $output = & $hostAdb -AdbPath $adb -s $serial shell stat -c '%s' $path 2>&1
+    $size = if ($LASTEXITCODE -eq 0) { (($output | Select-Object -First 1) -as [string]).Trim() } else { '' }
+    $size -notmatch '^\d+$' -or [int64]$size -le 0
+})
+if ($missingPreloadFiles.Count -gt 0) { throw "System 中缺少用户应用投放源：$($missingPreloadFiles -join ', ')" }
+Write-Host 'System 中的五个用户应用投放源均存在。' -ForegroundColor Green
+
+if ([string]$job.mode -eq 'Factory') {
+    $expectedPackages = @(([string]$job.expectedPreloadPackages).Split(',') | Where-Object { $_ -ne '' })
+    $packageDeadline = [DateTime]::UtcNow.AddMinutes(2)
+    do {
+        $packageLines = @((ADB @('-s', $serial, 'shell', 'pm', 'list', 'packages', '-f')) | ForEach-Object { [string]$_ })
+        $missingPackages = @($expectedPackages | Where-Object {
+            $packageName = $_
+            -not ($packageLines | Where-Object { $_ -match ('^package:/data/app/.+=' + [regex]::Escape($packageName) + '$') })
+        })
+        if ($missingPackages.Count -gt 0) {
+            Write-Host ("等待用户可卸载应用完成首次投放：{0}" -f ($missingPackages -join ', ')) -ForegroundColor Gray
+            Start-Sleep -Seconds 3
+        }
+    } while ($missingPackages.Count -gt 0 -and [DateTime]::UtcNow -lt $packageDeadline)
+    if ($missingPackages.Count -gt 0) { throw "用户可卸载预装应用缺失：$($missingPackages -join ', ')" }
+    Write-Host '五个用户可卸载预装应用均已位于 /data/app。' -ForegroundColor Green
+}
+
+$suffix = if ($serial.Length -gt 4) { $serial.Substring($serial.Length - 4).ToUpperInvariant() } else { $serial.ToUpperInvariant() }
+$expectedDeviceName = "JT600_$suffix"
+$deviceName = ((ADB @('-s', $serial, 'shell', 'settings', 'get', 'global', 'device_name')) -join '').Trim()
+$bluetoothName = ((ADB @('-s', $serial, 'shell', 'settings', 'get', 'secure', 'bluetooth_name')) -join '').Trim()
+if ($deviceName -ne $expectedDeviceName -or $bluetoothName -ne $expectedDeviceName) {
+    throw "设备名称不匹配：系统名称='$deviceName'，蓝牙名称='$bluetoothName'，要求='$expectedDeviceName'。"
+}
+$bluetoothState = (ADB @('-s', $serial, 'shell', 'dumpsys', 'bluetooth_manager')) -join "`n"
+if ($bluetoothState -notmatch ('(?m)^\s*name:\s*' + [regex]::Escape($expectedDeviceName) + '\s*$')) {
+    throw "蓝牙适配器实际名称不是 $expectedDeviceName；Settings 值正确但蓝牙协议栈尚未应用该名称。"
+}
+Write-Host "系统名称、蓝牙设置和蓝牙适配器实际名称均为 $expectedDeviceName。" -ForegroundColor Green

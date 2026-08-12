@@ -34,7 +34,7 @@
    |---|---|---|
    | Kernel | `firmware-package\jt600-1.1-universal-20260812\K71M122.img` | `0x0000E000` |
    | Boot | `firmware-package\jt600-1.1-universal-20260812\B71M29.img` | `0x00014000` |
-   | System | `firmware-package\jt600-1.1-universal-20260812\S71M52.img` | `0x0008A000` |
+   | System | `firmware-package\jt600-1.1-universal-20260812\S71M53.img` | `0x0008A000` |
    | Metadata | `firmware-package\device-backup\metadata.img` | `0x0048A000` |
    | Kpanic | `firmware-package\device-backup\kpanic.img` | `0x0048C000` |
    | Userdata | `firmware-package\jt600-1.1-universal-20260812\userdata-superblock-guard-4m.img` | `0x0048E000` |
@@ -53,11 +53,11 @@
 2. 双击 `tools\flash\Run-JT600Flash-Update.cmd`，脚本先启动已准备好的 AndroidTool。
 3. AndroidTool 窗口打开后，设备关机并按上面的方式插入 USB、进入 Loader；如果当前系统有 USB ADB，也可以先重启到 Loader。
 4. AndroidTool 打开后所有写入项均未选中。只填写并选择控制台列出的 Kernel 和 System，再由人类点击“执行”；Loader、Boot、Parameter 和其他行均不选择。
-5. 控制台应列出 `K71M122.img`（起始地址 `0x0000E000`）和 `S71M52.img`（起始地址 `0x0008A000`）。等待 100% 下载和校验，脚本自动通过 AndroidTool 自带的 USB ADB 做写后检查。
+5. 控制台应列出 `K71M122.img`（起始地址 `0x0000E000`）和 `S71M53.img`（起始地址 `0x0008A000`）。等待 100% 下载和校验，脚本自动通过 AndroidTool 自带的 USB ADB 做写后检查。
 
 ## 验收
 
-脚本会显示设备序列号、系统显示版本、Kernel 版本、启动完成状态和 SELinux，并确认 System 与 Kernel 都和固件发布清单一致。V1.1 的正确显示版本是 `JT600 V1.1 (2026-08-12)`，Kernel 构建号是 `#136`。ADB 的连接方式由设备使用者自行决定，脚本不改变 ADB 传输设置。
+脚本会显示设备序列号、系统显示版本、Kernel 版本、启动完成状态和 SELinux，并确认 System 为 S71M53、Kernel 为 `#136`。它会确认 System 内含 SensorTest、AIDA64、Chrome、LocalSend、Fcitx5 的投放源；Factory 首次刷写还会等待这五个应用全部成为 `/data/app` 用户应用。系统设备名称、蓝牙设置和蓝牙适配器实际名称必须均为 `JT600_序列号后四位`。ADB 的连接方式由设备使用者自行决定，脚本不改变 ADB 传输设置。
 
 ## 立即停止的情况
 

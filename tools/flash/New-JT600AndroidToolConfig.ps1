@@ -99,7 +99,7 @@ $releaseValues = @{}
 foreach ($line in Get-Content -LiteralPath $releaseManifest -Encoding UTF8) {
     if ($line -match '^([^=]+)=(.*)$') { $releaseValues[$matches[1]] = $matches[2] }
 }
-foreach ($key in @('RELEASE_VERSION', 'INTERNAL_TUPLE', 'EXPECTED_DISPLAY_ID', 'EXPECTED_KERNEL_BUILD', 'KERNEL', 'BOOT', 'SYSTEM', 'PARAMETER', 'USERDATA_GUARD', 'KERNEL_BYTES', 'BOOT_BYTES', 'SYSTEM_BYTES', 'PARAMETER_BYTES', 'USERDATA_GUARD_BYTES', 'TARGET_KERNEL_LBA', 'TARGET_BOOT_LBA', 'TARGET_SYSTEM_LBA', 'TARGET_METADATA_LBA', 'TARGET_KPANIC_LBA', 'TARGET_USERDATA_LBA', 'TARGET_PARAMETER_LBA')) {
+foreach ($key in @('RELEASE_VERSION', 'INTERNAL_TUPLE', 'EXPECTED_DISPLAY_ID', 'EXPECTED_KERNEL_BUILD', 'EXPECTED_SYSTEM_IMAGE', 'EXPECTED_PRELOAD_FILES', 'EXPECTED_PRELOAD_PACKAGES', 'KERNEL', 'BOOT', 'SYSTEM', 'PARAMETER', 'USERDATA_GUARD', 'KERNEL_BYTES', 'BOOT_BYTES', 'SYSTEM_BYTES', 'PARAMETER_BYTES', 'USERDATA_GUARD_BYTES', 'TARGET_KERNEL_LBA', 'TARGET_BOOT_LBA', 'TARGET_SYSTEM_LBA', 'TARGET_METADATA_LBA', 'TARGET_KPANIC_LBA', 'TARGET_USERDATA_LBA', 'TARGET_PARAMETER_LBA')) {
     if (-not $releaseValues.ContainsKey($key)) { throw "RELEASE-MANIFEST.txt is missing $key" }
 }
 $toolExe = Require-File (Join-Path $tool 'AndroidTool.exe') 'AndroidTool.exe'
@@ -169,6 +169,9 @@ $job = [ordered]@{
     internalTuple = $releaseValues['INTERNAL_TUPLE']
     expectedDisplayId = $releaseValues['EXPECTED_DISPLAY_ID']
     expectedKernelBuild = $releaseValues['EXPECTED_KERNEL_BUILD']
+    expectedSystemImage = $releaseValues['EXPECTED_SYSTEM_IMAGE']
+    expectedPreloadFiles = $releaseValues['EXPECTED_PRELOAD_FILES']
+    expectedPreloadPackages = $releaseValues['EXPECTED_PRELOAD_PACKAGES']
     firmwareDirectory = $firmware
     androidToolDirectory = $stagedTool
     androidToolExe = $toolExe

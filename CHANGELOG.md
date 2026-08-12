@@ -2,8 +2,9 @@
 
 ## 1.1 - 2026-08-12
 
+- Replaced the regressed S71M52 System with S71M53, based on the accepted S71M51 release content plus the per-device name fix; post-write verification now requires all five uninstallable preload apps, the S71M53 release marker and `JT600_<serial suffix>` names.
 - Fixed Factory runs getting stranded at the Android boot animation when AndroidTool completed a manual write without recording `RunProc ret=1`; the workflow now verifies the flashed System, Kernel and userdata size on-device before automatically initializing `/data`.
-- Updated Factory and custom-system update workflows for the JT600 V1.1 combination `K71M122/B71M29/S71M52/R71M0`; update mode now writes the required Kernel and System pair.
+- Updated Factory and custom-system update workflows for the JT600 V1.1 combination `K71M122/B71M29/S71M53/R71M0`; update mode now writes the required Kernel and System pair.
 - Added post-write comparison of `ro.build.display.id` and the Kernel build number with the release manifest so an incomplete or mismatched V1.1 combination cannot be reported as accepted.
 - Replaced generated Factory IMAGE configurations with an explicit human-readable AndroidTool write table. The script validates inputs and opens the all-unselected tool only.
 - Replaced AndroidTool's obsolete ADB 1.0.31 with the tested platform-tools ADB 1.0.41 so Windows 11 can enumerate the JT600 USB ADB interface.
