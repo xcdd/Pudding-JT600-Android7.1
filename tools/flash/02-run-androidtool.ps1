@@ -71,12 +71,6 @@ elseif ($failure) {
     throw '已检测到 AndroidTool 本次操作失败或报错；不会进入设备验收。请保留现场并检查 AndroidTool 窗口中的错误。'
 }
 else {
-    Write-Host '没有检测到本次 AndroidTool 的成功记录，也没有明确的失败记录。' -ForegroundColor Red
-    Write-Host '接下来的验收会连接设备 ADB；原厂首次刷写还可能初始化 /data 并重启设备。' -ForegroundColor Yellow
-    Write-Host '只有在你确认已经完成刷写、理解上述操作并同意继续时，输入 CONFIRM；其他输入都会停止。' -ForegroundColor Yellow
-    $confirmation = Read-Host '请输入 CONFIRM 继续设备 ADB 验收，或直接按 Enter 停止'
-    if ($confirmation -cne 'CONFIRM') {
-        throw '未输入 CONFIRM，已停止设备验收。'
-    }
-    Write-Host '已输入 CONFIRM，继续设备 ADB 验收。' -ForegroundColor Green
+    Write-Host 'AndroidTool 没有留下本次成功或失败记录，将改用设备实际状态判断。' -ForegroundColor Yellow
+    Write-Host '下面会自动核对 System、Kernel 和分区大小；任何一项不匹配都会停止。Factory 模式核对通过后会初始化 /data 并重启。' -ForegroundColor Yellow
 }

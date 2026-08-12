@@ -43,6 +43,8 @@
    只选择这 7 项；Loader、Resource、擦除、低格、校准/NVRAM 和其他未知项目均不选择。点击“执行”，等待下载和校验达到 100%，然后关闭 AndroidTool。
 9. 脚本会先启动项目自带 ADB 并检查 Windows 驱动。如果设备已经进入 ADB，直接开始验收；如果驱动缺失，会明确提示重新运行 `tools\flash\00-install-drivers.cmd`，不会假装等待。驱动正常但设备仍在启动时，脚本显示等待秒数和 ADB 状态。原厂首次刷写后 `/data` 一定尚未初始化；不完成这一步设备无法正常启动。脚本确认 userdata 恰为 5 GiB 后会自动初始化 `/data`、重启并继续验收。
 
+如果 AndroidTool 没有留下成功日志，脚本不会停在人工确认界面。它会继续读取设备的 System、Kernel 和 userdata 大小；三项与 V1.1 发布清单完全一致时才自动初始化 `/data`，否则停止并显示不匹配的项目。
+
 如果刷写已经完成，但 CMD 窗口意外关闭，双击 `tools\flash\Resume-JT600Verification.cmd`。它只继续最近一次任务的 ADB 验收和必要的 `/data` 初始化，不会重新打开 AndroidTool，也不会重新刷写。
 
 ## 已刷入定制系统的设备
