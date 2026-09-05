@@ -64,10 +64,28 @@ foreach ($job in $jobs) {
 
     $destination = Join-Path $output $job.Name
     Copy-Item -LiteralPath $exported -Destination $destination -Force
-    $hash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash
-    "FILE=$($job.Name)`nBYTES=$($job.Bytes)`nSHA256=$hash`nSTART=$($job.Start)`nSECTORS=$($job.Count)" |
+    $sourceStream = [IO.File]::OpenRead($exported)
+    $destinationStream = [IO.File]::OpenRead($destination)
+    try {
+        if ($sourceStream.Length -ne $destinationStream.Length) { throw "复制后的 $($job.Name) 大小不一致。" }
+        $sourceBuffer = New-Object byte[] 1048576
+        $destinationBuffer = New-Object byte[] 1048576
+        while (($sourceCount = $sourceStream.Read($sourceBuffer, 0, $sourceBuffer.Length)) -gt 0) {
+            $destinationCount = $destinationStream.Read($destinationBuffer, 0, $sourceCount)
+            if ($destinationCount -ne $sourceCount) { throw "复制后的 $($job.Name) 读取长度不一致。" }
+            for ($index = 0; $index -lt $sourceCount; $index++) {
+                if ($sourceBuffer[$index] -ne $destinationBuffer[$index]) {
+                    throw "复制后的 $($job.Name) 内容不一致。"
+                }
+            }
+        }
+    } finally {
+        $sourceStream.Dispose()
+        $destinationStream.Dispose()
+    }
+    "FILE=$($job.Name)`nBYTES=$($job.Bytes)`nSTART=$($job.Start)`nSECTORS=$($job.Count)" |
         Set-Content -LiteralPath "$destination.manifest.txt" -Encoding UTF8
-    Write-Host "已保存并校验 $destination" -ForegroundColor Green
+    Write-Host "已保存并逐字节核对 $destination" -ForegroundColor Green
 }
 
 Write-Host '三个镜像均已导出并整理完成。现在关闭 AndroidTool，脚本将结束。' -ForegroundColor Green

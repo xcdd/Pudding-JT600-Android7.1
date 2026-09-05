@@ -38,7 +38,6 @@ for ($i = 0; $i -lt $rowCount; $i++) {
 $safe = [byte[]]($source[0..($headerSize - 1)] + ($rows | ForEach-Object { $_ }))
 [IO.File]::WriteAllBytes($configPath, $safe)
 
-$hash = (Get-FileHash -LiteralPath $configPath -Algorithm SHA256).Hash
-"CONFIG=config.cfg`nSELECTED_ROWS=0`nLOADER_SELECTED=false`nSHA256=$hash" |
+"CONFIG=config.cfg`nSELECTED_ROWS=0`nLOADER_SELECTED=false" |
     Set-Content -LiteralPath (Join-Path $tool 'SAFE-DEFAULT.txt') -Encoding UTF8
 Write-Host 'AndroidTool 默认配置已设为全部写入项未选中。' -ForegroundColor Green

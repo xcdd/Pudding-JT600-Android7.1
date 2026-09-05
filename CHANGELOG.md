@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2 - 2026-09-05
+
+- Finalized the validated JT600 combination `K71M147/B71M29/S71M57/R71M0` and retained the K124 dual-display selection and accepted display wake/brightness behavior.
+- Fixed the AP6212 SDIO DAT0 pinmux loss after long suspend/resume in Kernel K71M147; the five-day operator WiFi observation passed.
+- Added the A2DP Sink short-audio fix in System S71M57: streams without AVRCP Play are accepted and decoding starts on the first AVDTP packet, so system notifications and meeting audio do not depend on background music.
+- Updated Factory and custom-system Update workflows for Kernel build `#161`; Update writes only Kernel and System and does not require previously uninstalled preload apps to reappear.
+- Kept each device's original Resource; the `101502000000059C` GSL touch implementation is explicitly outside this release's support scope.
+- Replaced whole-image SHA-256 preflight reads with fast release-manifest, file-name and exact-size checks; post-write runtime verification remains required.
+
 ## 1.1 - 2026-08-12
 
 - Fixed Factory verification so an unmounted `/data` is initialized immediately from the task's Factory mode; it no longer depends on an optional command-line switch or waits for an impossible boot completion.

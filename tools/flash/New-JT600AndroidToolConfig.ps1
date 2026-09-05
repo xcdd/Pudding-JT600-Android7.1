@@ -75,25 +75,8 @@ function Get-Image([string]$Directory, [string]$Name, [long]$ExpectedBytes) {
     return $path
 }
 
-function Assert-ManifestHash([string]$ManifestPath, [string]$FilePath) {
-    $leaf = [IO.Path]::GetFileName($FilePath)
-    $line = Get-Content -LiteralPath $ManifestPath -Encoding UTF8 |
-        Where-Object { $_ -match ('^([0-9a-fA-F]{64})\s+\*?' + [regex]::Escape($leaf) + '$') } |
-        Select-Object -First 1
-    if ($null -eq $line) { throw "SHA256SUMS.txt has no entry for $leaf" }
-    $expected = ([regex]::Match($line, '^[0-9a-fA-F]{64}')).Value.ToUpperInvariant()
-    $actual = (Get-FileHash -LiteralPath $FilePath -Algorithm SHA256).Hash.ToUpperInvariant()
-    if ($actual -ne $expected) { throw "$leaf SHA-256 mismatch: $actual (expected $expected)" }
-}
-
-function Assert-ExpectedHash([string]$FilePath, [string]$Expected) {
-    $actual = (Get-FileHash -LiteralPath $FilePath -Algorithm SHA256).Hash.ToUpperInvariant()
-    if ($actual -ne $Expected.ToUpperInvariant()) { throw "$([IO.Path]::GetFileName($FilePath)) SHA-256 does not match RELEASE-MANIFEST.txt" }
-}
-
 $firmware = Resolve-FullPath $FirmwareDirectory
 $tool = Resolve-FullPath $AndroidToolDirectory
-$manifest = Require-File (Join-Path $firmware 'SHA256SUMS.txt') 'Firmware SHA256SUMS.txt'
 $releaseManifest = Require-File (Join-Path $firmware 'RELEASE-MANIFEST.txt') 'Firmware RELEASE-MANIFEST.txt'
 $releaseValues = @{}
 foreach ($line in Get-Content -LiteralPath $releaseManifest -Encoding UTF8) {
@@ -102,17 +85,44 @@ foreach ($line in Get-Content -LiteralPath $releaseManifest -Encoding UTF8) {
 foreach ($key in @('RELEASE_VERSION', 'INTERNAL_TUPLE', 'EXPECTED_DISPLAY_ID', 'EXPECTED_KERNEL_BUILD', 'EXPECTED_SYSTEM_IMAGE', 'EXPECTED_PRELOAD_FILES', 'EXPECTED_PRELOAD_PACKAGES', 'KERNEL', 'BOOT', 'SYSTEM', 'PARAMETER', 'USERDATA_GUARD', 'KERNEL_BYTES', 'BOOT_BYTES', 'SYSTEM_BYTES', 'PARAMETER_BYTES', 'USERDATA_GUARD_BYTES', 'TARGET_KERNEL_LBA', 'TARGET_BOOT_LBA', 'TARGET_SYSTEM_LBA', 'TARGET_METADATA_LBA', 'TARGET_KPANIC_LBA', 'TARGET_USERDATA_LBA', 'TARGET_PARAMETER_LBA')) {
     if (-not $releaseValues.ContainsKey($key)) { throw "RELEASE-MANIFEST.txt is missing $key" }
 }
+$expectedReleaseValues = [ordered]@{
+    RELEASE_VERSION = '1.2'
+    INTERNAL_TUPLE = 'K71M147/B71M29/S71M57/R71M0'
+    EXPECTED_DISPLAY_ID = 'JT600 V1.2 (2026-09-05)'
+    EXPECTED_KERNEL_BUILD = '#161'
+    EXPECTED_SYSTEM_IMAGE = 'S71M57.img'
+    EXPECTED_PRELOAD_FILES = 'JT600-SensorTest.apk,AIDA64.apk,Chrome.apk,LocalSend.apk,Fcitx5.apk'
+    EXPECTED_PRELOAD_PACKAGES = 'com.jt600.sensortest,com.finalwire.aida64,com.android.chrome,org.localsend.localsend_app,org.fcitx.fcitx5.android'
+    KERNEL = 'K71M147.img'
+    KERNEL_BYTES = '12582912'
+    BOOT = 'B71M29.img'
+    BOOT_BYTES = '12582912'
+    SYSTEM = 'S71M57.img'
+    SYSTEM_BYTES = '2147483648'
+    PARAMETER = 'parameter-expanded-storage.txt'
+    PARAMETER_BYTES = '755'
+    USERDATA_GUARD = 'userdata-superblock-guard-4m.img'
+    USERDATA_GUARD_BYTES = '4194304'
+    TARGET_KERNEL_LBA = '0x0000E000'
+    TARGET_BOOT_LBA = '0x00014000'
+    TARGET_SYSTEM_LBA = '0x0008A000'
+    TARGET_METADATA_LBA = '0x0048A000'
+    TARGET_KPANIC_LBA = '0x0048C000'
+    TARGET_USERDATA_LBA = '0x0048E000'
+    TARGET_PARAMETER_LBA = '0x00000000'
+}
+foreach ($entry in $expectedReleaseValues.GetEnumerator()) {
+    if ([string]$releaseValues[$entry.Key] -ne [string]$entry.Value) {
+        throw "RELEASE-MANIFEST.txt has $($entry.Key)='$($releaseValues[$entry.Key])'; expected '$($entry.Value)'"
+    }
+}
 $toolExe = Require-File (Join-Path $tool 'AndroidTool.exe') 'AndroidTool.exe'
 $baseConfig = Require-File (Join-Path $tool 'config.cfg') 'AndroidTool config.cfg'
 $configIni = Require-File (Join-Path $tool 'config.ini') 'AndroidTool config.ini'
 $adb = Require-File (Join-Path $tool 'bin\adb.exe') 'AndroidTool bundled USB ADB'
 
 $system = Get-Image $firmware $releaseValues['SYSTEM'] ([int64]$releaseValues['SYSTEM_BYTES'])
-Assert-ExpectedHash $system $releaseValues['SYSTEM_SHA256']
-Assert-ManifestHash $manifest $system
 $kernel = Get-Image $firmware $releaseValues['KERNEL'] ([int64]$releaseValues['KERNEL_BYTES'])
-Assert-ExpectedHash $kernel $releaseValues['KERNEL_SHA256']
-Assert-ManifestHash $manifest $kernel
 $parameter = $null
 $guard = $null
 $boot = $null
@@ -122,12 +132,6 @@ if ($Mode -eq 'Factory') {
     $boot = Get-Image $firmware $releaseValues['BOOT'] ([int64]$releaseValues['BOOT_BYTES'])
     $parameter = Get-Image $firmware $releaseValues['PARAMETER'] ([int64]$releaseValues['PARAMETER_BYTES'])
     $guard = Get-Image $firmware $releaseValues['USERDATA_GUARD'] ([int64]$releaseValues['USERDATA_GUARD_BYTES'])
-    Assert-ExpectedHash $boot $releaseValues['BOOT_SHA256']
-    Assert-ExpectedHash $parameter $releaseValues['PARAMETER_SHA256']
-    Assert-ExpectedHash $guard $releaseValues['USERDATA_GUARD_SHA256']
-    Assert-ManifestHash $manifest $boot
-    Assert-ManifestHash $manifest $parameter
-    Assert-ManifestHash $manifest $guard
     if ([string]::IsNullOrWhiteSpace($BackupDirectory)) {
         throw 'Factory mode requires the target device backup directory containing metadata.img and kpanic.img'
     }

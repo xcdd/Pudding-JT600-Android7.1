@@ -178,12 +178,15 @@ if ([string]$job.mode -eq 'Factory') {
             -not ($packageLines | Where-Object { $_ -match ('^package:/data/app/.+=' + [regex]::Escape($packageName) + '$') })
         })
         if ($missingPackages.Count -gt 0) {
-            Write-Host ("等待用户可卸载应用完成首次投放：{0}" -f ($missingPackages -join ', ')) -ForegroundColor Gray
+            Write-Host ("等待 Factory 首次投放的用户应用位于 /data/app：{0}" -f ($missingPackages -join ', ')) -ForegroundColor Gray
             Start-Sleep -Seconds 3
         }
     } while ($missingPackages.Count -gt 0 -and [DateTime]::UtcNow -lt $packageDeadline)
-    if ($missingPackages.Count -gt 0) { throw "用户可卸载预装应用缺失：$($missingPackages -join ', ')" }
-    Write-Host '五个用户可卸载预装应用均已位于 /data/app。' -ForegroundColor Green
+    if ($missingPackages.Count -gt 0) { throw "Factory 用户可卸载预装应用缺失：$($missingPackages -join ', ')" }
+    Write-Host 'Factory 的五个用户可卸载预装应用均已位于 /data/app。' -ForegroundColor Green
+}
+else {
+    Write-Host 'Update 模式：仅检查 System 投放源；不会要求已卸载的用户应用重新出现。' -ForegroundColor Green
 }
 
 $suffix = if ($serial.Length -gt 4) { $serial.Substring($serial.Length - 4).ToUpperInvariant() } else { $serial.ToUpperInvariant() }
