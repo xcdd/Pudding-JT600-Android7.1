@@ -10,9 +10,58 @@ $job = Get-Content -Raw -Encoding UTF8 -LiteralPath $JobFile | ConvertFrom-Json
 $toolDirectory = [string]$job.androidToolDirectory
 $exe = Join-Path $toolDirectory 'AndroidTool.exe'
 if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw "AndroidTool not found: $exe" }
+$adb = [string]$job.adb
+$hostAdb = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\host\jt600-host.ps1'))
+if (-not (Test-Path -LiteralPath $adb -PathType Leaf)) { throw "USB ADB not found: $adb" }
+
+function Get-AdbDeviceLines {
+    $output = & $hostAdb -AdbPath $adb devices 2>&1
+    if ($LASTEXITCODE -ne 0) { return @() }
+    return @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -match '^\S+\s+(device|offline|unauthorized)\s*$' })
+}
+
+if ([string]$job.mode -eq 'Update') {
+    # An Update run commonly starts while Android is still running. Offer the
+    # reversible ADB transition before opening AndroidTool so the operator does
+    # not have to discover the Loader step separately.
+    $adbEntries = @(Get-AdbDeviceLines)
+    $androidEntries = @($adbEntries | Where-Object { $_ -match '^\S+\s+device\s*$' })
+    if ($androidEntries.Count -gt 1) {
+        throw "检测到多个 Android ADB 设备：$($androidEntries -join '; ')。请只保留目标设备。"
+    }
+    if ($androidEntries.Count -eq 1) {
+        $serial = ([regex]::Match($androidEntries[0], '^\S+')).Value
+        Write-Host "检测到 Android 设备 $serial。" -ForegroundColor Cyan
+        do {
+            $answer = (Read-Host '设备当前在 Android，是否自动进入 BL？输入 Y 自动进入，输入 N 由你手工进入').Trim().ToUpperInvariant()
+        } while ($answer -notin @('Y', 'N'))
+
+        if ($answer -eq 'Y') {
+            $rebootOutput = & $hostAdb -AdbPath $adb -s $serial reboot bootloader 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "无法通过 USB ADB 进入 BL：$($rebootOutput -join "`n")"
+            }
+            Write-Host '已发送 reboot bootloader；等待 Android ADB 断开后再操作 AndroidTool。' -ForegroundColor Green
+            Start-Sleep -Seconds 2
+            $stillAndroid = @(Get-AdbDeviceLines | Where-Object { $_ -match '^\S+\s+device\s*$' })
+            if ($stillAndroid.Count -gt 0) {
+                Write-Warning '设备仍报告为 Android ADB；请确认它已真正进入 BL，再继续。'
+            }
+        }
+        else {
+            Write-Host '保持设备当前状态。请手工让它进入 BL；脚本不会自动重启设备。' -ForegroundColor Yellow
+        }
+    }
+    elseif ($adbEntries.Count -gt 0) {
+        Write-Warning "检测到 ADB 设备但状态不可用：$($adbEntries -join '; ')。脚本不会对它发送重启命令。"
+    }
+    else {
+        Write-Host '未检测到 Android ADB；设备可能已经在 BL。将继续启动 AndroidTool。' -ForegroundColor Cyan
+    }
+}
 
 Write-Host 'AndroidTool 将以全部未选中的配置启动；请按下面清单在界面中填写。' -ForegroundColor Green
-Write-Host '脚本不会替你生成或加载分区配置。AndroidTool 窗口打开后，再让设备进入 Loader，按清单逐项添加并执行。' -ForegroundColor Cyan
+Write-Host '脚本不会替你生成或加载分区配置。Update 模式会先识别 Android 设备，并可自动进入 BL。' -ForegroundColor Cyan
 Write-Host ''
 foreach ($item in @($job.manualSteps)) {
     Write-Host ("{0}. 名称={1}  文件={2}  起始地址={3}" -f $item.order, $item.name, $item.file, $item.address) -ForegroundColor Yellow

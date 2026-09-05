@@ -50,8 +50,10 @@
 ## 已刷入定制系统的设备
 
 1. 双击 `tools\flash\00-install-drivers.cmd`，完成驱动安装。
-2. 双击 `tools\flash\Run-JT600Flash-Update.cmd`，脚本先启动已准备好的 AndroidTool。
-3. AndroidTool 窗口打开后，设备关机并按上面的方式插入 USB、进入 Loader；如果当前系统有 USB ADB，也可以先重启到 Loader。
+2. 双击 `tools\flash\Run-JT600Flash-Update.cmd`。脚本会先检查固件和工具，再检查 USB ADB 状态。
+3. 如果设备当前在 Android，脚本会显示设备序列号并询问是否自动进入 BL；输入 `Y` 会通过 USB ADB
+   执行 `reboot bootloader`，输入 `N` 则保留设备状态并由操作者手工进入 BL。如果设备已经在 BL，
+   脚本会直接启动 AndroidTool。
 4. AndroidTool 打开后所有写入项均未选中。只填写并选择控制台列出的 Kernel 和 System，再由人类点击“执行”；Loader、Boot、Parameter 和其他行均不选择。
 5. 控制台应列出 `K71M147.img`（起始地址 `0x0000E000`）和 `S71M57.img`（起始地址 `0x0008A000`）。等待 100% 下载和校验，脚本自动通过 AndroidTool 自带的 USB ADB 做写后检查。
 
