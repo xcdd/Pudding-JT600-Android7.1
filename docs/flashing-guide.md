@@ -49,13 +49,21 @@
 
 ## 已刷入定制系统的设备
 
+该流程不需要本台设备导出的 `metadata.img`、`kpanic.img` 或原始 Parameter；这些文件只用于原厂首次刷写流程。
+
 1. 双击 `tools\flash\00-install-drivers.cmd`，完成驱动安装。
-2. 双击 `tools\flash\Run-JT600Flash-Update.cmd`。脚本会先检查固件和工具，再检查 USB ADB 状态。
-3. 如果设备当前在 Android，脚本会显示设备序列号并询问是否自动进入 BL；输入 `Y` 会通过 USB ADB
-   执行 `reboot bootloader`，输入 `N` 则保留设备状态并由操作者手工进入 BL。如果设备已经在 BL，
-   脚本会直接启动 AndroidTool。
-4. AndroidTool 打开后所有写入项均未选中。只填写并选择控制台列出的 Kernel 和 System，再由人类点击“执行”；Loader、Boot、Parameter 和其他行均不选择。
+2. 双击 `tools\flash\Run-JT600Flash-Update.cmd`。脚本会先核对 V1.2 固件，再检查 USB ADB/Loader 状态。
+3. 如果设备当前在 Android，脚本会显示设备状态并询问是否自动进入 BL：输入 `Y` 会发送
+   `reboot bootloader`，输入 `N` 则由操作者手工进入；脚本会等待并确认唯一 `Rockusb Loader`。
+   已经在 BL 的设备直接进入确认步骤；未确认唯一 Loader 前不会启动 AndroidTool。
+4. AndroidTool 启动时保持全部写入项未勾选，这是安全默认值，不会自动勾选 System。脚本会在控制台列出
+   本次应填写的两行；人工只填写并选择 Kernel 和 System，然后点击“执行”。Loader、Boot、Parameter、
+   Metadata、Kpanic、Userdata、Resource、擦除、低格、校准/NVRAM 和其他行均不选择。
 5. 控制台应列出 `K71M147.img`（起始地址 `0x0000E000`）和 `S71M57.img`（起始地址 `0x0008A000`）。等待 100% 下载和校验，脚本自动通过 AndroidTool 自带的 USB ADB 做写后检查。
+
+Update 之所以包含 Kernel 和 System 两行，是为了让已经运行旧定制版本的设备同时获得 K147
+WiFi 修复和 S57 蓝牙修复；只写 System 只适用于已经单独确认运行 K147 的维护场景，不是公开 Update
+流程的默认方式。
 
 ## 验收
 

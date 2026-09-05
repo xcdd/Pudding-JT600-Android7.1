@@ -20,6 +20,37 @@ function Get-AdbDeviceLines {
     return @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -match '^\S+\s+(device|offline|unauthorized)\s*$' })
 }
 
+function Get-LoaderDevices {
+    if ($null -eq (Get-Command Get-PnpDevice -ErrorAction SilentlyContinue)) {
+        throw '无法使用 Get-PnpDevice 确认 Rockusb Loader；请在 Windows 设备管理器确认驱动后重试。'
+    }
+    return @(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object {
+        $_.InstanceId -match '(?i)VID_2207&PID_310C' -or
+        $_.FriendlyName -match '(?i)Rockusb|Rockchip Loader'
+    })
+}
+
+function Wait-ForLoader([int]$TimeoutSeconds = 45) {
+    $started = [DateTime]::UtcNow
+    $deadline = $started.AddSeconds($TimeoutSeconds)
+    do {
+        $loaders = @(Get-LoaderDevices)
+        if ($loaders.Count -gt 1) {
+            $loaderIds = @($loaders | ForEach-Object { $_.InstanceId })
+            throw "检测到多个 Rockusb Loader 设备：$($loaderIds -join '; ')。请只保留目标设备。"
+        }
+        if ($loaders.Count -eq 1) {
+            Write-Host "已确认唯一 Rockusb Loader：$($loaders[0].InstanceId)" -ForegroundColor Green
+            return
+        }
+        $elapsed = [int](([DateTime]::UtcNow - $started).TotalSeconds)
+        $remaining = [Math]::Max(0, [int]($deadline - [DateTime]::UtcNow).TotalSeconds)
+        Write-Host ("等待唯一 Rockusb Loader：已等待 {0} 秒，剩余 {1} 秒。" -f $elapsed, $remaining) -ForegroundColor Gray
+        Start-Sleep -Seconds 2
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw '未在等待期限内确认唯一 Rockusb Loader 设备；不会启动 AndroidTool。'
+}
+
 if ([string]$job.mode -eq 'Update') {
     # An Update run commonly starts while Android is still running. Offer the
     # reversible ADB transition before opening AndroidTool so the operator does
@@ -41,27 +72,26 @@ if ([string]$job.mode -eq 'Update') {
             if ($LASTEXITCODE -ne 0) {
                 throw "无法通过 USB ADB 进入 BL：$($rebootOutput -join "`n")"
             }
-            Write-Host '已发送 reboot bootloader；等待 Android ADB 断开后再操作 AndroidTool。' -ForegroundColor Green
-            Start-Sleep -Seconds 2
-            $stillAndroid = @(Get-AdbDeviceLines | Where-Object { $_ -match '^\S+\s+device\s*$' })
-            if ($stillAndroid.Count -gt 0) {
-                Write-Warning '设备仍报告为 Android ADB；请确认它已真正进入 BL，再继续。'
-            }
+            Write-Host '已发送 reboot bootloader；现在确认 Rockusb Loader。' -ForegroundColor Green
+            Wait-ForLoader
         }
         else {
-            Write-Host '保持设备当前状态。请手工让它进入 BL；脚本不会自动重启设备。' -ForegroundColor Yellow
+            Write-Host '保持设备当前状态。请手工让它进入 BL；脚本会等待并确认 Loader。' -ForegroundColor Yellow
+            Wait-ForLoader
         }
     }
     elseif ($adbEntries.Count -gt 0) {
-        Write-Warning "检测到 ADB 设备但状态不可用：$($adbEntries -join '; ')。脚本不会对它发送重启命令。"
+        Write-Warning "检测到 ADB 设备但状态不可用：$($adbEntries -join '; ')。脚本不会对它发送重启命令，将等待 Loader。"
+        Wait-ForLoader
     }
     else {
-        Write-Host '未检测到 Android ADB；设备可能已经在 BL。将继续启动 AndroidTool。' -ForegroundColor Cyan
+        Write-Host '未检测到 Android ADB；按已在 BL 处理，先确认唯一 Loader。' -ForegroundColor Cyan
+        Wait-ForLoader
     }
 }
 
 Write-Host 'AndroidTool 将以全部未选中的配置启动；请按下面清单在界面中填写。' -ForegroundColor Green
-Write-Host '脚本不会替你生成或加载分区配置。Update 模式会先识别 Android 设备，并可自动进入 BL。' -ForegroundColor Cyan
+Write-Host '脚本不会替你生成或加载分区配置。Update 模式会先确认唯一 Loader，并可从 Android 自动进入 BL。' -ForegroundColor Cyan
 Write-Host ''
 foreach ($item in @($job.manualSteps)) {
     Write-Host ("{0}. 名称={1}  文件={2}  起始地址={3}" -f $item.order, $item.name, $item.file, $item.address) -ForegroundColor Yellow
@@ -71,7 +101,7 @@ Write-Host '只点击“执行”写入上面列出的项目；不要选择 Load
 $logPath = Join-Path $toolDirectory ('Log\Log' + (Get-Date -Format 'yyyy-MM-dd') + '.txt')
 $logStart = if (Test-Path -LiteralPath $logPath) { (Get-Item -LiteralPath $logPath).Length } else { 0 }
 $process = Start-Process -FilePath $exe -WorkingDirectory $toolDirectory -Verb RunAs -PassThru
-Write-Host 'AndroidTool 已启动。保持窗口打开；现在让设备进入 Loader，按上面清单填写并完成刷写。确认 100% 后关闭 AndroidTool，脚本会继续验收。' -ForegroundColor Cyan
+Write-Host 'AndroidTool 已启动。按上面清单填写并完成刷写。确认 100% 后关闭 AndroidTool，脚本会继续验收。' -ForegroundColor Cyan
 Write-Host '当前状态：正在等待你操作 AndroidTool；每 10 秒显示一次状态。此窗口不会自动推进，也不是卡死。' -ForegroundColor Yellow
 
 $seenLogBytes = $logStart

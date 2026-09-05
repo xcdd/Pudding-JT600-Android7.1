@@ -8,7 +8,7 @@
 - `00-export-original-jt600.cmd`：原厂设备首次刷写前导出本机备份；
 - `Run-JT600Flash-Factory.cmd`：原厂设备首次完整刷写并扩展可用存储空间；
 - `Run-JT600Flash-Update.cmd`：已经刷入定制系统的设备更新 V1.2 所需的 K71M147 Kernel 和 S71M57 System；
-  入口会识别设备是否仍在 Android，并询问是否自动进入 BL；
+  入口会识别设备是否仍在 Android，询问是否自动进入 BL，并确认唯一 Rockusb Loader；
 - `Resume-JT600Verification.cmd`：刷写已经完成但 CMD 意外关闭时，只恢复 ADB 验收和必要的 `/data` 初始化，不重新刷写；
 - `Sign-JT600SensorTest.ps1`：用本地开发签名材料签出可使用 LED/电机服务的 APK；
 - `Set-AndroidToolSafeDefault.ps1`：把直接打开 AndroidTool 时的默认配置设为全部写入项未选中；

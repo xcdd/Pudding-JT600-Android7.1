@@ -37,6 +37,9 @@ if ($Mode -eq 'Factory' -and [string]::IsNullOrWhiteSpace($BackupDirectory)) {
     if (Test-Path -LiteralPath (Join-Path $localBackup 'metadata.img') -PathType Leaf) { $BackupDirectory = $localBackup }
     else { $BackupDirectory = Pick-Folder '选择本台设备导出的 metadata.img 和 kpanic.img 所在目录' }
 }
+if ($Mode -eq 'Update') {
+    Write-Host 'Update 模式只需要固件目录和 AndroidTool；不需要 metadata.img、kpanic.img 或原始 Parameter。' -ForegroundColor Green
+}
 
 $script = Join-Path $PSScriptRoot 'New-JT600AndroidToolConfig.ps1'
 Write-Host '正在快速核对 V1.2 发布清单、文件名和文件大小；不会读取整份镜像计算哈希。' -ForegroundColor Cyan
