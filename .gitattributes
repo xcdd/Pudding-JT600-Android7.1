@@ -1,0 +1,3 @@
+# Keep Windows command scripts in the line format expected by cmd.exe.
+*.cmd text eol=crlf
+*.bat text eol=crlf

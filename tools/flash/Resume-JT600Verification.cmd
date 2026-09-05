@@ -1,12 +1,13 @@
 @echo off
 setlocal
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Resume-JT600Verification.ps1"
-if errorlevel 1 (
-  echo.
-  echo 验收流程未完成，请根据上面的错误处理。
-  pause
-  exit /b 1
-)
+if errorlevel 1 goto :failure
 echo.
-echo 刷写完成，设备验收成功。按任意键退出。
+echo Verification completed successfully. Press any key to exit.
 pause >nul
+exit /b 0
+:failure
+echo.
+echo ERROR: Verification did not complete. Review the PowerShell output above.
+pause
+exit /b 1

@@ -7,6 +7,7 @@
 - Added the A2DP Sink short-audio fix in System S71M57: streams without AVRCP Play are accepted and decoding starts on the first AVDTP packet, so system notifications and meeting audio do not depend on background music.
 - Updated Factory and custom-system Update workflows for Kernel build `#161`; Update writes only Kernel and System and does not require previously uninstalled preload apps to reappear.
 - Improved `Run-JT600Flash-Update.cmd`: it detects an Android ADB device and asks whether to enter BL automatically before launching AndroidTool.
+- Fixed all Windows command wrappers to use cmd-compatible line endings, avoid code-page-dependent messages, and return their PowerShell exit status instead of silently closing.
 - Update confirms a single Rockusb Loader before opening AndroidTool; Factory-only device backups are never requested by Update mode.
 - Kept each device's original Resource; the `101502000000059C` GSL touch implementation is explicitly outside this release's support scope.
 - Replaced whole-image SHA-256 preflight reads with fast release-manifest, file-name and exact-size checks; post-write runtime verification remains required.
